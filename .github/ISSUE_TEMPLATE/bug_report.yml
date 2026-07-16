@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a reproducible RepoRoo problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve RepoRoo. Never include tokens, private source code, or credentials.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Explain the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: Include the smallest safe set of steps.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: RepoRoo version or commit
+      placeholder: v0.1.0 or a commit hash
+    validations:
+      required: true
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Ubuntu Linux
+        - macOS
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant redacted logs
+      render: shell

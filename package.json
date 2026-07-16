@@ -1,0 +1,43 @@
+{
+  "name": "reporoo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "A Telegram codebase Q&A harness powered by Codex.",
+  "keywords": [
+    "codex",
+    "github",
+    "telegram-bot",
+    "codebase-qa"
+  ],
+  "homepage": "https://github.com/worldwalker/reporoo#readme",
+  "bugs": {
+    "url": "https://github.com/worldwalker/reporoo/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/worldwalker/reporoo.git"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx watch src/index.ts",
+    "setup": "tsx src/cli/setup.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@openai/codex-sdk": "0.144.5",
+    "dotenv": "17.4.2",
+    "grammy": "1.44.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1",
+    "tsx": "4.23.1",
+    "typescript": "7.0.2"
+  }
+}

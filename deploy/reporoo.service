@@ -1,0 +1,22 @@
+[Unit]
+Description=RepoRoo Telegram bot
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=reporoo
+Group=reporoo
+WorkingDirectory=/opt/reporoo
+Environment=NODE_ENV=production
+Environment=HOME=/var/lib/reporoo
+ExecStart=/usr/bin/node /opt/reporoo/dist/index.js
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
