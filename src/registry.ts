@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import type { AnalystProvider } from "./analyst.js";
 
 export type RepositoryDefinition = {
   id: string;
@@ -30,6 +31,7 @@ type RepositoryRow = {
 };
 type ValueRow = { owner_id: string | number; value: string };
 type LinkRow = { repository_id: number; included_id: string };
+type ProviderPreferenceRow = { provider: string };
 
 function slugify(value: string): string {
   return value
@@ -79,6 +81,31 @@ export class ProductRegistry {
     const product = this.get(productId);
     if (!product) throw new Error(`Unknown product: ${productId}`);
     return product;
+  }
+
+  getAnalystProvider(platform: string, userId: string | number): AnalystProvider {
+    const row = this.database
+      .prepare(
+        `SELECT provider FROM analyst_preferences
+         WHERE platform = ? AND user_id = ?`,
+      )
+      .get(platform, String(userId)) as ProviderPreferenceRow | undefined;
+    return row?.provider === "claude" ? "claude" : "codex";
+  }
+
+  setAnalystProvider(
+    platform: string,
+    userId: string | number,
+    provider: AnalystProvider,
+  ): void {
+    this.database
+      .prepare(
+        `INSERT INTO analyst_preferences (platform, user_id, provider)
+         VALUES (?, ?, ?)
+         ON CONFLICT (platform, user_id)
+         DO UPDATE SET provider = excluded.provider, updated_at = CURRENT_TIMESTAMP`,
+      )
+      .run(platform, String(userId), provider);
   }
 
   addProduct(name: string, createdBy: number): ProductDefinition {
@@ -297,6 +324,13 @@ export class ProductRegistry {
         repository_id INTEGER NOT NULL REFERENCES repositories(row_id) ON DELETE CASCADE,
         included_repository_id INTEGER NOT NULL REFERENCES repositories(row_id) ON DELETE CASCADE,
         PRIMARY KEY (repository_id, included_repository_id)
+      );
+      CREATE TABLE IF NOT EXISTS analyst_preferences (
+        platform TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        provider TEXT NOT NULL CHECK (provider IN ('codex', 'claude')),
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (platform, user_id)
       );
     `);
   }

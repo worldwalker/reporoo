@@ -18,8 +18,8 @@ RepoRoo is designed to make repository analysis read-only, but operators remain 
 
 - limiting the Telegram chats and administrators allowed to use the bot;
 - granting GitHub credentials only the repository access they need;
-- protecting the host, `.env`, registry database, repository cache, and Codex credentials;
-- reviewing OpenAI and Telegram data-handling terms for their deployment; and
+- protecting the host, `.env`, registry database, repository cache, Codex credentials, and Anthropic API key;
+- reviewing OpenAI, Anthropic, and Telegram data-handling terms for their deployment; and
 - keeping RepoRoo and its dependencies updated.
 
-Repository content is untrusted input. The Codex prompt instructs the analyst to ignore repository instructions, and execution uses a read-only sandbox with network access and web search disabled. These controls reduce risk; they are not a promise that hostile content can never influence a generated answer.
+Repository content is untrusted input. Both analyst prompts instruct the model to ignore repository instructions. Codex uses a read-only sandbox with network access and web search disabled. Claude is limited to read/search tools whose paths are checked against the selected repository; shell, write, settings, MCP, and web tools are unavailable. These controls reduce risk; they are not a promise that hostile content can never influence a generated answer.

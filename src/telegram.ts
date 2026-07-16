@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Bot, Context, InlineKeyboard } from "grammy";
+import type { AnalystProvider } from "./analyst.js";
 import type { AppConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { QuestionAnswerService } from "./qa-service.js";
@@ -13,6 +14,7 @@ type PendingQuestion = {
   replyToMessageId: number;
   expiresAt: number;
   logContext: QuestionLogContext;
+  provider: AnalystProvider;
 };
 
 type AnswerContext = {
@@ -87,6 +89,12 @@ export class RepoRooTelegramBot {
       if (!this.isAllowedChat(context.chat.id)) return;
 
       const text = context.message.text.trim();
+      const modelCommand = this.parseModelCommand(text, context.me.username);
+      if (modelCommand !== undefined) {
+        await this.handleModelCommand(context, modelCommand);
+        return;
+      }
+
       const managementCommand = this.parseManagementCommand(text, context.me.username);
       if (managementCommand) {
         await this.handleManagementCommand(context, managementCommand);
@@ -128,6 +136,7 @@ export class RepoRooTelegramBot {
         characters: question.length,
       });
 
+      const provider = this.providerFor(context.from.id);
       const inherited = this.inheritedProductIds(context);
       const route = routeQuestion(question, this.registry, inherited);
       if (route.kind === "clarification_required") {
@@ -135,11 +144,11 @@ export class RepoRooTelegramBot {
           requestId: logContext.requestId,
           choices: route.products.length,
         });
-        await this.askForProduct(context, question, logContext);
+        await this.askForProduct(context, question, logContext, provider);
         return;
       }
 
-      await this.answerQuestion(context, question, route, logContext);
+      await this.answerQuestion(context, question, route, logContext, provider);
     });
 
     this.bot.on("callback_query:data", async (context) => {
@@ -182,6 +191,7 @@ export class RepoRooTelegramBot {
         pending.question,
         route,
         pending.logContext,
+        pending.provider,
         pending.replyToMessageId,
       );
     });
@@ -193,6 +203,57 @@ export class RepoRooTelegramBot {
 
   private isAllowedChat(chatId: number): boolean {
     return this.config.allowedChatIds.has(chatId);
+  }
+
+  private parseModelCommand(text: string, username: string): string | undefined {
+    const match = new RegExp(
+      `^/model(?:@${escapeRegExp(username)})?(?:\\s+(.*))?$`,
+      "iu",
+    ).exec(text);
+    return match ? match[1]?.trim() ?? "" : undefined;
+  }
+
+  private async handleModelCommand(
+    context: Context & { message: NonNullable<Context["message"]> },
+    argument: string,
+  ): Promise<void> {
+    const userId = context.from?.id;
+    if (!userId) return;
+
+    const current = this.providerFor(userId);
+    if (!argument) {
+      await context.reply(
+        `Your analyst is ${this.providerLabel(current)}. Available: ${this.qa.availableProviders.map((provider) => this.providerLabel(provider)).join(", ")}.\n\nChange it with /model codex or /model claude.`,
+        { reply_parameters: { message_id: context.message.message_id } },
+      );
+      return;
+    }
+
+    const normalized = argument.toLocaleLowerCase("en");
+    if (normalized !== "codex" && normalized !== "claude") {
+      await context.reply("Usage: /model codex or /model claude.");
+      return;
+    }
+
+    if (!this.qa.hasProvider(normalized)) {
+      await context.reply(
+        `${this.providerLabel(normalized)} is not configured on this RepoRoo deployment.`,
+      );
+      return;
+    }
+
+    this.registry.setAnalystProvider("telegram", userId, normalized);
+    logger.info("analyst.preference_changed", { userId, provider: normalized });
+    await context.reply(`Done. Your questions will use ${this.providerLabel(normalized)}.`);
+  }
+
+  private providerFor(userId: number): AnalystProvider {
+    const preferred = this.registry.getAnalystProvider("telegram", userId);
+    return this.qa.hasProvider(preferred) ? preferred : "codex";
+  }
+
+  private providerLabel(provider: AnalystProvider): string {
+    return provider === "claude" ? "Claude" : "Codex";
   }
 
   private parseManagementCommand(text: string, username: string): ManagementCommand | undefined {
@@ -439,6 +500,7 @@ export class RepoRooTelegramBot {
     context: Context & { message: NonNullable<Context["message"]> },
     question: string,
     logContext: QuestionLogContext,
+    provider: AnalystProvider,
   ): Promise<void> {
     const chatId = context.chat?.id;
     const userId = context.from?.id;
@@ -456,6 +518,7 @@ export class RepoRooTelegramBot {
       replyToMessageId: context.message.message_id,
       expiresAt: Date.now() + PENDING_QUESTION_TTL_MS,
       logContext,
+      provider,
     });
 
     const keyboard = new InlineKeyboard();
@@ -474,6 +537,7 @@ export class RepoRooTelegramBot {
     question: string,
     route: Extract<ReturnType<typeof routeQuestion>, { kind: "selected" }>,
     logContext: QuestionLogContext,
+    provider: AnalystProvider,
     replyToMessageId?: number,
   ): Promise<void> {
     const chatId = context.chat?.id;
@@ -483,18 +547,22 @@ export class RepoRooTelegramBot {
       requestId: logContext.requestId,
       products: route.products.map((product) => product.id),
       repositories: route.repositories.map((selection) => selection.repository.github),
+      provider,
     });
 
-    const status = await context.reply("🔎 RepoRoo is checking the current code…", {
-      ...(replyToMessageId
-        ? { reply_parameters: { message_id: replyToMessageId } }
-        : context.message
-          ? { reply_parameters: { message_id: context.message.message_id } }
-          : {}),
-    });
+    const status = await context.reply(
+      `🔎 ${this.providerLabel(provider)} is checking the current code…`,
+      {
+        ...(replyToMessageId
+          ? { reply_parameters: { message_id: replyToMessageId } }
+          : context.message
+            ? { reply_parameters: { message_id: context.message.message_id } }
+            : {}),
+      },
+    );
 
     try {
-      const result = await this.qa.answer(question, route);
+      const result = await this.qa.answer(question, route, provider);
       await context.api.editMessageText(
         chatId,
         status.message_id,
@@ -510,11 +578,13 @@ export class RepoRooTelegramBot {
         durationMs: Date.now() - logContext.startedAt,
         repositoriesAnalyzed: route.repositories.length,
         answerCharacters: result.publicText.length,
+        provider,
       });
     } catch (error) {
       logger.error("question.failed", error, {
         requestId: logContext.requestId,
         durationMs: Date.now() - logContext.startedAt,
+        provider,
       });
       await context.api.editMessageText(
         chatId,

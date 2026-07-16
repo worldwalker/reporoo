@@ -1,4 +1,8 @@
-import { CodexAnalyst, type RepositoryFinding } from "./codex.js";
+import type {
+  AnalystProvider,
+  RepositoryAnalyst,
+  RepositoryFinding,
+} from "./analyst.js";
 import { GitHubSnapshots } from "./github.js";
 import type { GitHubRepositoryInfo } from "./github.js";
 import type { RouteResult } from "./router.js";
@@ -49,9 +53,17 @@ function technicalDetails(findings: readonly RepositoryFinding[]): string {
 export class QuestionAnswerService {
   constructor(
     private readonly snapshots: GitHubSnapshots,
-    private readonly analyst: CodexAnalyst,
+    private readonly analysts: ReadonlyMap<AnalystProvider, RepositoryAnalyst>,
     private readonly maxRepositoriesPerQuestion: number,
   ) {}
+
+  get availableProviders(): readonly AnalystProvider[] {
+    return [...this.analysts.keys()];
+  }
+
+  hasProvider(provider: AnalystProvider): boolean {
+    return this.analysts.has(provider);
+  }
 
   async assertReady(): Promise<void> {
     await this.snapshots.assertReady();
@@ -61,7 +73,14 @@ export class QuestionAnswerService {
     return this.snapshots.inspectRepository(github);
   }
 
-  async answer(question: string, route: Extract<RouteResult, { kind: "selected" }>): Promise<QuestionAnswer> {
+  async answer(
+    question: string,
+    route: Extract<RouteResult, { kind: "selected" }>,
+    provider: AnalystProvider,
+  ): Promise<QuestionAnswer> {
+    const analyst = this.analysts.get(provider);
+    if (!analyst) throw new Error(`Analysis provider is not configured: ${provider}`);
+
     if (route.repositories.length > this.maxRepositoriesPerQuestion) {
       throw new Error(
         `This question selected ${route.repositories.length} repositories; the configured limit is ${this.maxRepositoriesPerQuestion}.`,
@@ -78,7 +97,7 @@ export class QuestionAnswerService {
       );
       synthesisDirectory ??= snapshot.directory;
       findings.push(
-        await this.analyst.analyzeRepository({
+        await analyst.analyzeRepository({
           question,
           product: selection.product,
           repository: selection.repository,
@@ -91,7 +110,7 @@ export class QuestionAnswerService {
       throw new Error("No repositories were selected for this question");
     }
 
-    const response = await this.analyst.synthesize(question, findings, synthesisDirectory);
+    const response = await analyst.synthesize(question, findings, synthesisDirectory);
     const productNames = [...new Set(route.products.map((product) => product.name))];
 
     return {

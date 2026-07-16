@@ -5,9 +5,9 @@ RepoRoo is self-hosted. The person or organization running a deployment is respo
 ## Data processed
 
 - Telegram sends the bot message text, chat metadata, and user metadata needed to handle an update.
-- RepoRoo sends the question and relevant repository context to Codex so it can produce an answer.
+- RepoRoo sends the question and relevant repository context to the user's selected analyst, Codex or Claude, so it can produce an answer.
 - GitHub CLI clones configured repositories onto the operator's host.
-- The local SQLite registry stores product and repository configuration plus the Telegram user ID of the administrator who created each record.
+- The local SQLite registry stores product and repository configuration, the Telegram user ID of the administrator who created each record, and each user's selected analyst.
 
 ## Retention
 
@@ -19,6 +19,6 @@ RepoRoo is self-hosted. The person or organization running a deployment is respo
 
 - Tell users who operates the bot and where their data is processed.
 - Set an appropriate log retention period and restrict log access.
-- Restrict access to `.env`, `data/`, GitHub credentials, and Codex credentials.
-- Do not configure repositories whose content should not be processed by the selected Codex service.
+- Restrict access to `.env`, `data/`, GitHub credentials, Codex credentials, and the Anthropic API key.
+- Do not configure repositories whose content should not be processed by the available OpenAI or Anthropic service.
 - Provide a contact and process for access or deletion requests where required.

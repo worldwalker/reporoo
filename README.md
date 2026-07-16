@@ -1,6 +1,6 @@
 # RepoRoo 🦘
 
-RepoRoo is a read-only Telegram codebase Q&A bot powered by Codex. It hops across one or more authorized GitHub repositories, investigates a question, and returns a short answer for non-technical readers.
+RepoRoo is a read-only Telegram codebase Q&A bot powered by Codex or Claude. It hops across one or more authorized GitHub repositories, investigates a question, and returns a short answer for non-technical readers.
 
 > **Project status:** early-stage and suitable for careful self-hosting. Interfaces and registry data may change before the first stable release.
 
@@ -9,7 +9,7 @@ RepoRoo is a read-only Telegram codebase Q&A bot powered by Codex. It hops acros
 1. Responds only in allowlisted Telegram chats when mentioned or replied to.
 2. Routes questions to a product and its likely components.
 3. Clones or refreshes disposable repository snapshots using GitHub CLI.
-4. Runs Codex with `read-only`, no approvals, no network, and no web search.
+4. Runs the selected analyst with read-only repository tools, no edits, and no web search.
 5. Combines multi-repository findings into one plain-language answer.
 6. Keeps technical file evidence behind the admin-only `/details` command.
 
@@ -22,6 +22,7 @@ RepoRoo cannot edit source repositories or push to GitHub.
 - A Telegram bot token from BotFather
 - Access to the configured GitHub repositories
 - Codex authentication
+- Optional: an Anthropic API key to enable Claude
 
 GitHub CLI and the bundled Codex CLI are installed or verified by the setup flow.
 
@@ -51,6 +52,8 @@ TELEGRAM_BOT_TOKEN=123456789:replace-me
 TELEGRAM_ALLOWED_CHAT_IDS=-1001234567890
 TELEGRAM_ADMIN_USER_IDS=123456789
 REGISTRY_DATABASE=./data/registry.sqlite
+# Optional: enables /model claude
+ANTHROPIC_API_KEY=
 ```
 
 Keep Telegram BotFather privacy mode enabled if members will always mention or reply to RepoRoo. This prevents ordinary group conversation from reaching the bot.
@@ -123,6 +126,16 @@ sudo journalctl -u reporoo -f -o cat
 
 Replies to RepoRoo inherit the previous product selection. Administrators can reply with `/details` to see repository commits and supporting file locations.
 
+Each user can select their analyst independently. The preference is saved in the local registry database:
+
+```text
+/model
+/model codex
+/model claude
+```
+
+Codex is always the default. Claude appears only when `ANTHROPIC_API_KEY` is configured; `CLAUDE_MODEL` defaults to `claude-sonnet-5` and can be overridden. Questions analyzed by Claude send relevant repository content to Anthropic's API.
+
 ## Security model
 
 - Only allowlisted chat IDs are accepted.
@@ -131,6 +144,7 @@ Replies to RepoRoo inherit the previous product selection. Administrators can re
 - Product and repository changes are restricted to configured Telegram administrators.
 - Git commands use argument arrays rather than a shell.
 - Codex runs with a read-only sandbox, disabled network, and `approvalPolicy: never`.
+- Claude receives only read/search tools whose paths are constrained to the selected repository; file edits, shell commands, settings, MCP servers, and web tools are unavailable.
 - Public answers and technical evidence are separated.
 - GitHub credentials should have read-only access to only the configured repositories.
 

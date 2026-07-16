@@ -26,6 +26,8 @@ const environmentSchema = z.object({
   REPOSITORY_SYNC_TTL_SECONDS: z.coerce.number().int().min(0).default(300),
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(60).default(6),
   CODEX_MODEL: z.string().default(""),
+  ANTHROPIC_API_KEY: z.string().default(""),
+  CLAUDE_MODEL: z.string().trim().min(1).default("claude-sonnet-5"),
 });
 
 export type AppConfig = {
@@ -38,6 +40,8 @@ export type AppConfig = {
   repositorySyncTtlMs: number;
   rateLimitPerMinute: number;
   codexModel: string | undefined;
+  anthropicApiKey: string | undefined;
+  claudeModel: string;
 };
 
 export function loadAppConfig(
@@ -56,5 +60,7 @@ export function loadAppConfig(
     repositorySyncTtlMs: parsed.REPOSITORY_SYNC_TTL_SECONDS * 1_000,
     rateLimitPerMinute: parsed.RATE_LIMIT_PER_MINUTE,
     codexModel: parsed.CODEX_MODEL.trim() || undefined,
+    anthropicApiKey: parsed.ANTHROPIC_API_KEY.trim() || undefined,
+    claudeModel: parsed.CLAUDE_MODEL,
   };
 }

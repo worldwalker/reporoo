@@ -2,4 +2,4 @@
 
 # App
 
-Telegram bot talks to Codex. Main goal is to answer non-tech people's questions based on given repositories.
+Telegram bot talks to Codex or Claude, selected per user. Main goal is to answer non-tech people's questions based on given repositories.

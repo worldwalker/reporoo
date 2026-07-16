@@ -1,4 +1,6 @@
 import "dotenv/config";
+import type { AnalystProvider, RepositoryAnalyst } from "./analyst.js";
+import { ClaudeAnalyst } from "./claude.js";
 import { CodexAnalyst } from "./codex.js";
 import { loadAppConfig } from "./config.js";
 import { GitHubSnapshots } from "./github.js";
@@ -31,10 +33,16 @@ async function main(): Promise<void> {
     config.repositoryCacheDirectory,
     config.repositorySyncTtlMs,
   );
-  const analyst = new CodexAnalyst(config.codexModel);
+  const analysts = new Map<AnalystProvider, RepositoryAnalyst>([
+    ["codex", new CodexAnalyst(config.codexModel)],
+  ]);
+  if (config.anthropicApiKey) {
+    analysts.set("claude", new ClaudeAnalyst(config.anthropicApiKey, config.claudeModel));
+  }
+  logger.info("analysts.configured", { providers: [...analysts.keys()] });
   const qa = new QuestionAnswerService(
     snapshots,
-    analyst,
+    analysts,
     config.maxRepositoriesPerQuestion,
   );
   const bot = new RepoRooTelegramBot(config, registry, qa);
